@@ -1,7 +1,8 @@
 name: Windows helper
 on:
   push:
-    branches: [windows-support]
+    branches: [main]
+    paths: ["native/**", "bin/**", "*.js", "*.mjs", "test/**", ".github/workflows/windows.yml"]
   workflow_dispatch:
 permissions:
   contents: read
@@ -20,6 +21,11 @@ jobs:
           ref: d68c10f6074bbd4c430e52c41e5a685b9006c618
           path: maka-source
           persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Test the packaged Windows helper
+        run: npm test
       - name: Build the Windows Settings client
         shell: pwsh
         run: |

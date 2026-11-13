@@ -7,20 +7,21 @@ import { directory } from "./sync.js";
 const instance = Symbol.for("magpie.maka-rust.bridge");
 
 export default function MakaRust() {
-  if (process.platform !== "darwin" || globalThis[instance]) return {};
+  if (!["darwin", "win32"].includes(process.platform) || globalThis[instance]) return {};
   mkdirSync(directory, { recursive: true, mode: 0o700 });
-  // The persistent lock file serializes workers across host reloads. The kernel
-  // releases its lock even when a worker or the Bun host exits unexpectedly.
-  const args = ["-k", "-t", "50", join(directory, "sync.lock"), process.execPath,
-    fileURLToPath(new URL("./sync.js", import.meta.url))];
-  const options = { stdio: "ignore" };
+  const worker = fileURLToPath(new URL("./sync.js", import.meta.url));
+  // On Windows the native helper holds the lease. On macOS lockf wraps Bun.
+  const windows = process.platform === "win32";
+  const command = windows ? process.execPath : "/usr/bin/lockf";
+  const args = windows ? [worker] : ["-k", "-t", "50", join(directory, "sync.lock"), process.execPath, worker];
+  const options = { stdio: "ignore", windowsHide: true };
   let active = false;
   let pending = false;
   let timer;
   function tick() {
     if (active) { pending = true; return; }
     active = true;
-    const child = spawn("/usr/bin/lockf", args, options);
+    const child = spawn(command, args, options);
     child.on("error", (err) => console.error("Maka sync worker:", err.message));
     child.once("close", () => {
       active = false;
@@ -39,7 +40,7 @@ export default function MakaRust() {
     clearInterval(retry);
     watcher.close();
     // Magpie may restore desired.json just before shutting down the host.
-    spawnSync("/usr/bin/lockf", args, { ...options, timeout: 55000 });
+    spawnSync(command, args, { ...options, timeout: 55000 });
   });
   tick();
   return {};

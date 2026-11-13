@@ -77,6 +77,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if args.len() != 3 {
         return Err("expected Maka root and client journal paths".into());
     }
+    // Windows workers can overlap when Magpie reloads its plugin host. Hold the
+    // OS lock from before the ready message until the controller closes stdin.
+    #[cfg(windows)]
+    let _lease = {
+        let path = Path::new(&args[2]).with_extension("sync.lock");
+        let file = std::fs::OpenOptions::new().create(true).truncate(false)
+            .read(true).write(true).open(path)?;
+        file.lock()?;
+        file
+    };
     let record = discovery::read(Path::new(&args[1]))?;
     let status = Host::status(&record.endpoint, Some(record.host_epoch)).await?;
     record.verify(&status)?;

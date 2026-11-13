@@ -9,7 +9,7 @@ export const agent = {
 	model: "model",
 	ua: ["maka-rust"],
 	notice:
-		"The macOS bridge syncs this model to the selected running Maka Rust Host.",
+		"Magpie syncs this model to the running Maka Rust Host.",
 };
 export function connect({ gateway, model, models }) {
 	if (

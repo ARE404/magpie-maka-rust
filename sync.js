@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { createInterface } from "node:readline";
 import { mkdir, readFile, writeFile, rename, rm } from "node:fs/promises";
-import { resolve, join } from "node:path";
+import { relative, join } from "node:path";
 import { homedir } from "node:os";
 import { randomUUID, createHash } from "node:crypto";
 import { isDeepStrictEqual as same } from "node:util";
@@ -243,9 +243,9 @@ export async function reconcile(call, rootId, want, state, persist) {
 }
 export async function session(root, dir, fn) {
 	const child = spawn(
-		join(here, "bin/magpie-maka-helper"),
+		join(here, "bin", process.platform === "win32" ? "magpie-maka-helper.exe" : "magpie-maka-helper"),
 		[root, join(dir, "client.sqlite")],
-		{ stdio: ["pipe", "pipe", "pipe"] },
+		{ stdio: ["pipe", "pipe", "pipe"], windowsHide: true },
 	);
 	const lines = createInterface({ input: child.stdout })[
 		Symbol.asyncIterator
@@ -276,17 +276,20 @@ export async function session(root, dir, fn) {
 export async function run({ dir = directory } = {}) {
   const config = await json(join(dir, "bridge.json"), {});
   const root = config.root || join(homedir(), ".maka/application/host");
-  const want = desired(await json(join(dir, "desired.json"), null));
   const file = join(dir, "state.json");
-  const state = await json(file, null);
-  if (!want && !state) return "idle";
-  return await session(root, dir, (call, id) =>
-    reconcile(call, id, want, state, (s) => save(file, s)),
-  );
+  const readWanted = async () => desired(await json(join(dir, "desired.json"), null));
+  if (!await readWanted() && !await json(file, null)) return "idle";
+  return session(root, dir, async (call, id) => {
+    // Read both records after the helper owns its session lock. A preceding
+    // worker may have written a new connection revision while we waited.
+    const want = await readWanted();
+    const state = await json(file, null);
+    return reconcile(call, id, want, state, (s) => save(file, s));
+  });
 }
 
 // Invoked by the Magpie Bun host under a kernel lock, including on normal exit.
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && relative(process.argv[1], fileURLToPath(import.meta.url)) === "") {
   await mkdir(directory, { recursive: true, mode: 0o700 });
   try {
     const status = await run();
