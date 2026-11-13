@@ -1,0 +1,38 @@
+name: Windows helper
+on:
+  push:
+    branches: [windows-support]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 100
+    env:
+      CARGO_PROFILE_DEV_DEBUG: 0
+      CARGO_INCREMENTAL: 0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: apache/maka
+          ref: d68c10f6074bbd4c430e52c41e5a685b9006c618
+          path: maka-source
+          persist-credentials: false
+      - name: Build the Windows Settings client
+        shell: pwsh
+        run: |
+          rustup update stable --no-self-update
+          New-Item -Force -ItemType Directory maka-source/products/maka/client/examples
+          Copy-Item native/helper.rs maka-source/products/maka/client/examples/magpie_maka_helper.rs
+          Push-Location maka-source
+          cargo build --locked -p maka-app-client --example magpie_maka_helper
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          Pop-Location
+          Copy-Item maka-source/target/debug/examples/magpie_maka_helper.exe bin/magpie-maka-helper.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64-helper
+          path: bin/magpie-maka-helper.exe
+          if-no-files-found: error
