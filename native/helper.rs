@@ -74,7 +74,7 @@ async fn request(client: &Client, req: Value) -> Result<Value, String> {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<_> = std::env::args().collect();
-    if args.len() != 3 {
+    if !(3..=4).contains(&args.len()) {
         return Err("expected Maka root and client journal paths".into());
     }
     // Windows workers can overlap when Magpie reloads its plugin host. Hold the
@@ -87,7 +87,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         file.lock()?;
         file
     };
-    let record = discovery::read(Path::new(&args[1]))?;
+    let root = Path::new(&args[1]);
+    #[cfg(windows)]
+    let record = if let Some(control) = args.get(3) {
+        use maka_event_log::root::RootNamespaces;
+        let control = Path::new(control);
+        if !control.is_absolute() {
+            return Err("expected absolute Host control directory".into());
+        }
+        let mut namespaces = RootNamespaces::for_current_account()?;
+        namespaces.control = control.into();
+        discovery::read_with_namespaces(root, &namespaces)?
+    } else {
+        discovery::read(root)?
+    };
+    #[cfg(not(windows))]
+    let record = discovery::read(root)?;
     let status = Host::status(&record.endpoint, Some(record.host_epoch)).await?;
     record.verify(&status)?;
     let host = Host::connect(&record.endpoint, Some(record.host_epoch)).await?;

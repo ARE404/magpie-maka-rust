@@ -241,27 +241,34 @@ export async function reconcile(call, rootId, want, state, persist) {
 	}
 	return "current";
 }
-export async function session(root, dir, fn) {
+export async function session(root, dir, fn, controlDirectory) {
 	const child = spawn(
 		join(here, "bin", process.platform === "win32" ? "magpie-maka-helper.exe" : "magpie-maka-helper"),
-		[root, join(dir, "client.sqlite")],
+		[root, join(dir, "client.sqlite"), ...(controlDirectory ? [controlDirectory] : [])],
 		{ stdio: ["pipe", "pipe", "pipe"], windowsHide: true },
 	);
 	const lines = createInterface({ input: child.stdout })[
 		Symbol.asyncIterator
 	]();
 	const failed = new Promise((_, reject) => child.once("error", reject));
+	const closed = new Promise((resolve) => child.once("close", resolve));
 	failed.catch(() => {});
-	child.stderr.resume();
+	let startupError = "";
+	const captureStartup = (chunk) => {
+		startupError = (startupError + chunk.toString()).slice(-1024);
+	};
+	child.stderr.on("data", captureStartup);
 	child.stdin.on("error", () => {});
 	async function read() {
 		const { value, done } = await Promise.race([lines.next(), failed]);
-		if (done) throw Error("Maka Rust Host unreachable or helper incompatible");
+		if (done) throw Error(`Cannot communicate with the Maka Host at ${root}. ${startupError.trim() || "Check that Maka is running with this root and that the helper matches its version."}`);
 		return JSON.parse(value);
 	}
 	const timer = setTimeout(() => child.kill(), 45000);
 	try {
 		const { rootId } = await read();
+		child.stderr.off("data", captureStartup);
+		child.stderr.resume();
 		return await fn(async (method, input, secret) => {
 			child.stdin.write(JSON.stringify({ method, input, secret }) + "\n");
 			const reply = await read();
@@ -269,8 +276,9 @@ export async function session(root, dir, fn) {
 			return reply.ok;
 		}, rootId);
 	} finally {
-		clearTimeout(timer);
 		child.stdin.end();
+		await closed;
+		clearTimeout(timer);
 	}
 }
 export async function run({ dir = directory } = {}) {
@@ -285,7 +293,7 @@ export async function run({ dir = directory } = {}) {
     const want = await readWanted();
     const state = await json(file, null);
     return reconcile(call, id, want, state, (s) => save(file, s));
-  });
+  }, config.controlDirectory);
 }
 
 // Invoked by the Magpie Bun host under a kernel lock, including on normal exit.

@@ -67,7 +67,7 @@ test("real Magpie switches a running isolated Rust Host and restores its origina
 				],
 			}),
 		);
-		assert.match(run("ls").toString(), /Maka \(Rust\)/);
+		assert.match(run("ls").toString(), /^\s*Maka\s{2,}/m);
 		await session(process.env.MAKA_EMPTY_TEST_ROOT, dir, async (call, id) => {
 			const page = () => call("connections", { kind: "start" });
 			const baseline = await page();
