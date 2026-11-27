@@ -21,7 +21,7 @@
     "licenses"
   ],
   "scripts": {
-    "test": "node --test"
+    "test": "node --test \"test/*.test.js\""
   },
   "main": "./index.mjs",
   "repository": {

@@ -2,7 +2,7 @@ name: Windows helper
 on:
   push:
     branches: [main]
-    paths: ["native/**", "bin/**", "*.js", "*.mjs", "test/**", ".github/workflows/windows.yml"]
+    paths: ["native/**", "bin/**", "*.js", "*.mjs", "package.json", "test/**", ".github/workflows/windows.yml"]
   workflow_dispatch:
 permissions:
   contents: read
