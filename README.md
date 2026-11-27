@@ -30,4 +30,4 @@ magpie plugin add .
 
 运行 npm test。设置 MAGPIE_TEST_BIN 和 MAKA_EMPTY_TEST_ROOT 可额外测试一个独立空 Host 上的连接和恢复。在 macOS 上可用 `sh native/build.sh /path/to/maka-rust-checkout` 重新编译客户端。Windows x64 的构建步骤见 [Windows helper 工作流](.github/workflows/windows.yml)。
 
-本插件由社区独立维护。随包的原生客户端及 Maka 图标使用 Apache Maka 的代码和资产，见 licenses/。Windows 客户端适配 Maka 0.3.0，构建版本为 `apache/maka@16e3a7703eccf5f08b62fcb341b7b903f9a3e7e3`。随包的 macOS 客户端仍对应 `d68c10f6074bbd4c430e52c41e5a685b9006c618`，使用新版 Host 时可在 Apple Silicon 上检出前述 0.3.0 提交并运行 `native/build.sh` 重新构建。
+本插件由社区独立维护。随包的原生客户端及 Maka 图标使用 Apache Maka 的代码和资产，见 licenses/。Windows 客户端适配 Maka 0.3.0，构建版本为 `apache/maka@16e3a7703eccf5f08b62fcb341b7b903f9a3e7e3`。macOS 客户端基于 `apache/maka@fac7df85c7538245f1376d472c7f70affe95b18d` 构建，已验证 Maka `0.3.0-nightly.20261126.21` 的模型切换和恢复。
